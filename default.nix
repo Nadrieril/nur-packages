@@ -8,14 +8,26 @@
 
 { pkgs ? import <nixpkgs> {} }:
 
-{
-  # The `lib`, `modules`, and `overlay` names are special
-  lib = import ./lib { inherit pkgs; }; # functions
-  modules = import ./modules; # NixOS modules
-  overlays = import ./overlays; # nixpkgs overlays
+let
+  sources = import ./nix/sources.nix;
 
-  example-package = pkgs.callPackage ./pkgs/example-package { };
-  # some-qt5-package = pkgs.libsForQt5.callPackage ./pkgs/some-qt5-package { };
-  # ...
+  moz_overlay = import (sources.nixpkgs-mozilla);
+  pkgs_with_rust = moz_overlay pkgs_with_rust pkgs;
+
+  # From https://github.com/edolstra/import-cargo
+  import-cargo-flake = (import "${sources.import-cargo}/flake.nix").outputs { self = import-cargo-flake; };
+  importCargo = lockFile: import-cargo-flake.builders.importCargo { inherit pkgs lockFile; };
+
+in rec {
+  lib = {
+    inherit importCargo;
+  };
+
+  setuptools-rust = pkgs.python3Packages.callPackage ./pkgs/setuptools-rust.nix {};
+  tokenizers = pkgs.python3Packages.callPackage ./pkgs/tokenizers.nix {
+    rustChannelOf = pkgs_with_rust.rustChannelOf;
+    inherit importCargo setuptools-rust;
+  };
+  transformers = pkgs.python3Packages.callPackage ./pkgs/transformers.nix { inherit tokenizers; };
+  sentence-transformers = pkgs.python3Packages.callPackage ./pkgs/sentence-transformers.nix { inherit transformers; };
 }
-
