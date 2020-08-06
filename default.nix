@@ -9,7 +9,7 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  sources = import ./nix/sources.nix;
+  sources = import ./nix/sources.nix { inherit pkgs; };
 
   moz_overlay = import (sources.nixpkgs-mozilla);
   pkgs_with_rust = moz_overlay pkgs_with_rust pkgs;
